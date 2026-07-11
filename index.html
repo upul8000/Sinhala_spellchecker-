@@ -1,0 +1,1124 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sinhala Spell Checker – Add & Remove Words</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Noto Sans Sinhala', 'Iskoola Pota', 'Helvetica', Arial, sans-serif;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #f0f2f5;
+            color: #1a1a2e;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1a1a2e;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 20px;
+        }
+        .status-bar {
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            background: #e8f5e9;
+            border-left: 4px solid #4CAF50;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .status-bar .status-text {
+            font-weight: 500;
+            color: #2e7d32;
+        }
+        .status-bar .word-count-badge {
+            background: #1976D2;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+        }
+        .file-upload-area {
+            border: 2px dashed #2196F3;
+            padding: 25px;
+            text-align: center;
+            border-radius: 8px;
+            margin: 15px 0;
+            background: #f3f8ff;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .file-upload-area:hover {
+            background: #e3f2fd;
+        }
+        .file-upload-area input[type="file"] {
+            display: none;
+        }
+        .file-upload-area label {
+            cursor: pointer;
+            font-weight: 600;
+            color: #1976D2;
+            font-size: 18px;
+        }
+        .file-upload-area .hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: 8px;
+        }
+        .file-upload-area .loaded-file {
+            color: #2e7d32;
+            font-weight: bold;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 15px;
+            font-size: 20px;
+            font-family: 'Noto Sans Sinhala', 'Nirmala UI', 'Iskoola Pota', sans-serif;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            resize: vertical;
+            background: #fafafa;
+            line-height: 1.8;
+        }
+        textarea:focus {
+            border-color: #4CAF50;
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.2);
+        }
+
+        .preview-wrapper {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #fafafa;
+            min-height: 100px;
+            padding: 15px;
+            font-size: 20px;
+            font-family: 'Noto Sans Sinhala', 'Nirmala UI', 'Iskoola Pota', sans-serif;
+            line-height: 1.8;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin-top: 10px;
+            transition: border-color 0.3s;
+            user-select: text;
+        }
+        .preview-wrapper .word {
+            cursor: context-menu;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+        .preview-wrapper .misspelled {
+            /* text-decoration: underline wavy #d32f2f; */
+            background-color: rgba(211, 47, 47, 0.1);
+        }
+        .preview-label {
+            font-size: 14px;
+            color: #666;
+            margin-top: 15px;
+            font-weight: 600;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Custom Context Menu */
+        .context-menu {
+            display: none;
+            position: fixed;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 6px 0;
+            min-width: 180px;
+            z-index: 1000;
+            font-size: 15px;
+        }
+        .context-menu .menu-item {
+            padding: 8px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: background 0.15s;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            font-family: inherit;
+            font-size: inherit;
+            color: #1a1a2e;
+        }
+        .context-menu .menu-item:hover {
+            background: #e3f2fd;
+        }
+        .context-menu .menu-item.add-word {
+            color: #2e7d32;
+            font-weight: 600;
+        }
+        .context-menu .menu-item.remove-word {
+            color: #c62828;
+            font-weight: 600;
+        }
+        .context-menu .menu-divider {
+            height: 1px;
+            background: #e0e0e0;
+            margin: 4px 10px;
+        }
+        .context-menu .menu-item .suggestion-text {
+            font-weight: normal;
+        }
+        .context-menu .menu-item .shortcut {
+            margin-left: auto;
+            color: #999;
+            font-size: 12px;
+        }
+
+        .controls {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 22px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 15px;
+            font-weight: 600;
+            transition: background 0.3s, transform 0.1s;
+        }
+        button:hover { background: #388E3C; }
+        button:active { transform: scale(0.97); }
+        button.secondary { background: #ff5722; }
+        button.secondary:hover { background: #d84315; }
+        button.info { background: #2196F3; }
+        button.info:hover { background: #1976D2; }
+        button.warning { background: #ff9800; }
+        button.warning:hover { background: #f57c00; }
+        button.copy-btn { background: #607D8B; }
+        button.copy-btn:hover { background: #455A64; }
+        button.remove-btn {
+            background: #c62828;
+        }
+        button.remove-btn:hover {
+            background: #b71c1c;
+        }
+
+        .copy-feedback {
+            margin-left: 10px;
+            font-size: 14px;
+            color: #2e7d32;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-weight: 600;
+        }
+        .copy-feedback.show {
+            opacity: 1;
+        }
+
+        .results {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border-left: 4px solid #4CAF50;
+            min-height: 80px;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .results h3 { margin-top: 0; color: #1a1a2e; }
+        .error-item {
+            background: #ffebee;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin: 8px 0;
+            border-left: 4px solid #d32f2f;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+        }
+        .error-item .word-text {
+            font-size: 18px;
+            font-weight: bold;
+            color: #d32f2f;
+            min-width: 80px;
+        }
+        .error-item .suggestion-area {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 6px;
+        }
+        .error-item .suggestion-area .label {
+            font-size: 13px;
+            color: #666;
+        }
+        .suggestion {
+            color: #1976d2;
+            cursor: pointer;
+            padding: 3px 12px;
+            background: #e3f2fd;
+            border-radius: 4px;
+            font-size: 15px;
+            transition: background 0.2s;
+            border: 1px solid #bbdefb;
+        }
+        .suggestion:hover {
+            background: #bbdefb;
+        }
+        .action-btn {
+            border: none;
+            padding: 4px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 600;
+            transition: background 0.2s;
+            color: white;
+        }
+        .action-btn.add-btn {
+            background: #4CAF50;
+        }
+        .action-btn.add-btn:hover {
+            background: #388E3C;
+        }
+        .action-btn.remove-btn {
+            background: #c62828;
+        }
+        .action-btn.remove-btn:hover {
+            background: #b71c1c;
+        }
+        .action-btn.added {
+            background: #888;
+            cursor: default;
+        }
+        .success {
+            background: #e8f5e9;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #4CAF50;
+            font-size: 18px;
+            color: #2e7d32;
+        }
+        .stats {
+            margin-top: 15px;
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .stats span { font-weight: bold; color: #1565C0; }
+        .test-words {
+            margin: 15px 0;
+            padding: 15px;
+            background: #fff3e0;
+            border-radius: 8px;
+            border: 1px solid #ffcc80;
+        }
+        .test-words button {
+            font-size: 14px;
+            padding: 6px 15px;
+            background: #ff9800;
+        }
+        .test-words button:hover { background: #f57c00; }
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            z-index: 999;
+            opacity: 0;
+            transition: opacity 0.4s;
+            pointer-events: none;
+        }
+        .toast.show {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .toast.success { background: #2e7d32; }
+        .toast.error { background: #c62828; }
+        .toast.info { background: #1565C0; }
+        @media (max-width: 600px) {
+            .container { padding: 15px; }
+            textarea, .preview-wrapper { font-size: 16px; height: 150px; }
+            button { padding: 8px 16px; font-size: 13px; }
+            .error-item { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🇱🇰 සිංහල අක්ෂර වින්‍යාස පරීක්ෂක</h1>
+        <p class="subtitle">Right‑click on any word in the preview to add or remove it.</p>
+        
+        <div class="status-bar" id="statusBar">
+            <span class="status-text" id="statusText">✅ Ready! Type in Sinhala to check spelling.</span>
+            <span class="word-count-badge" id="wordCountBadge">0 words</span>
+        </div>
+
+        <div class="file-upload-area" id="fileUploadArea">
+            <label for="fileInput">📂 Load a Word List File</label>
+            <input type="file" id="fileInput" accept=".txt">
+            <div class="hint">
+                Upload a <code>.txt</code> file with one Sinhala word per line (UTF-8). 
+                <br><span id="fileStatus">Using built-in dictionary.</span>
+            </div>
+        </div>
+
+        <div class="test-words">
+            <strong>⚡ Quick Actions:</strong>
+            <button onclick="insertTestText()">📝 Insert Test Text</button>
+            <button onclick="addCommonWords()">📚 Add Common Words</button>
+            <button onclick="exportDictionary()">💾 Export Sorted Dictionary</button>
+        </div>
+        
+        <!-- Original Textarea -->
+        <textarea id="sinhalaInput" placeholder="ඔබගේ සිංහල පෙළ මෙහි ටයිප් කරන්න... (Type your Sinhala text here)"></textarea>
+		
+        <div class="controls">
+            <button onclick="checkText()">🔍 Check Spelling</button>
+            <button class="secondary" onclick="clearAll()">🗑️ Clear</button>
+            <button class="info" onclick="showDictionaryStats()">📊 Stats</button>
+            <button class="copy-btn" onclick="copyText()">📋 Copy Text</button>
+            <span class="copy-feedback" id="copyFeedback">✅ Copied!</span>
+        </div>
+		
+        <!-- Preview Pane with error highlights -->
+        <div class="preview-label">
+            <span>🔍 පෙරදසුන – වැරදි රතු ඉරකින් සලකුණු කර ඇත</span>
+            <span style="font-weight:normal;font-size:13px;color:#999;">(දකුණු‑ක්ලික් කර යෝජනා/ඉවත් කරන්න)</span>
+        </div>
+        <div class="preview-wrapper" id="preview"></div>
+        
+        
+        
+        <div id="results" class="results">
+            <p style="color: #666; margin: 0;">Spelling results will appear here after checking.</p>
+        </div>
+        
+        <div class="stats">
+            <span>📚 Dictionary: <span id="wordCount">0</span> words</span>
+            <span class="word-count">Added: <span id="addedCount">0</span> custom words</span>
+        </div>
+    </div>
+
+    <!-- Custom Context Menu -->
+    <div class="context-menu" id="contextMenu">
+        <!-- Items will be injected dynamically -->
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ============================================================
+        // SINHALA SPELL CHECKER – with Add & Remove
+        // ============================================================
+        
+        class SinhalaSpellChecker {
+            constructor() {
+                this.dictionary = new Set();
+                this.addedWords = new Set();
+                this.maxSuggestions = 5;
+                this.maxEditDistance = 2;
+                this.initialized = false;
+                this.filename = 'Built-in';
+            }
+
+            static sortSinhala(words) {
+                return words.sort((a, b) => a.localeCompare(b, 'si'));
+            }
+
+            initialize(baseWordList, filename = 'Built-in') {
+                if (!Array.isArray(baseWordList) && !(baseWordList instanceof Set)) {
+                    throw new Error('Word list must be an Array or Set');
+                }
+                const normalizedBase = Array.from(baseWordList)
+                    .map(w => this.normalize(w))
+                    .filter(w => w.length > 0);
+                SinhalaSpellChecker.sortSinhala(normalizedBase);
+                const saved = this.loadAddedWordsFromStorage()
+                    .map(w => this.normalize(w))
+                    .filter(w => w.length > 0);
+                SinhalaSpellChecker.sortSinhala(saved);
+                const combined = [...normalizedBase, ...saved];
+                this.dictionary = new Set(combined);
+                this.addedWords = new Set(saved);
+                this.initialized = true;
+                this.filename = filename;
+            }
+
+            normalize(word) {
+                return word.trim().replace(/\s+/g, ' ').normalize('NFC');
+            }
+
+            check(word) {
+                if (!this.initialized) return false;
+                return this.dictionary.has(this.normalize(word));
+            }
+
+            tokenize(text) {
+                const regex = /[\u0D80-\u0DFF\u0E00-\u0E7F\u200C\u200D]+/g;
+                const matches = text.match(regex);
+                if (!matches) return [];
+                return matches.map(w => this.normalize(w)).filter(w => w.length > 0);
+            }
+
+            checkText(text) {
+                if (!this.initialized) return [];
+                const words = this.tokenize(text);
+                const misspelled = [];
+                for (const word of words) {
+                    if (word.length < 2) continue;
+                    if (!this.dictionary.has(word)) {
+                        misspelled.push({
+                            word: word,
+                            suggestions: this.getSuggestions(word)
+                        });
+                    }
+                }
+                return misspelled;
+            }
+
+            getSuggestions(word) {
+                if (!this.initialized) return [];
+                const normalized = this.normalize(word);
+                const candidates = this.generateCandidates(normalized);
+                const results = [];
+                for (const cand of candidates) {
+                    const distance = this.levenshteinDistance(normalized, cand);
+                    if (distance <= this.maxEditDistance) {
+                        results.push({
+                            word: cand,
+                            distance: distance,
+                            score: 1 - (distance / Math.max(normalized.length, cand.length))
+                        });
+                    }
+                }
+                results.sort((a, b) => b.score - a.score);
+                return results.slice(0, this.maxSuggestions);
+            }
+
+            generateCandidates(word) {
+                const candidates = [];
+                const wordLen = word.length;
+                for (const dictWord of this.dictionary) {
+                    const lenDiff = Math.abs(dictWord.length - wordLen);
+                    if (lenDiff <= 2) candidates.push(dictWord);
+                }
+                if (candidates.length < 10) {
+                    for (const dictWord of this.dictionary) {
+                        const lenDiff = Math.abs(dictWord.length - wordLen);
+                        if (lenDiff <= 4 && !candidates.includes(dictWord)) {
+                            candidates.push(dictWord);
+                        }
+                    }
+                }
+                return candidates;
+            }
+
+            levenshteinDistance(s1, s2) {
+                const m = s1.length, n = s2.length;
+                if (m === 0) return n;
+                if (n === 0) return m;
+                const dp = Array.from({ length: m + 1 }, (_, i) => i);
+                for (let j = 1; j <= n; j++) {
+                    let prev = dp[0];
+                    dp[0] = j;
+                    for (let i = 1; i <= m; i++) {
+                        const temp = dp[i];
+                        const cost = s1[i-1] === s2[j-1] ? 0 : 1;
+                        dp[i] = Math.min(prev + cost, dp[i-1] + 1, dp[i] + 1);
+                        prev = temp;
+                    }
+                }
+                return dp[m];
+            }
+
+            addWord(word) {
+                if (!this.initialized) return false;
+                const normalized = this.normalize(word);
+                if (!normalized || normalized.length < 2) return false;
+                if (this.dictionary.has(normalized)) return false;
+                this.dictionary.add(normalized);
+                this.addedWords.add(normalized);
+                const sortedArray = [...this.dictionary].sort((a, b) => a.localeCompare(b, 'si'));
+                this.dictionary = new Set(sortedArray);
+                this.saveAddedWordsToStorage();
+                return true;
+            }
+
+            removeWord(word) {
+                if (!this.initialized) return false;
+                const normalized = this.normalize(word);
+                if (!this.addedWords.has(normalized)) return false;
+                this.addedWords.delete(normalized);
+                this.dictionary.delete(normalized);
+                // Re-sort the dictionary (optional, but keeps it tidy)
+                const sortedArray = [...this.dictionary].sort((a, b) => a.localeCompare(b, 'si'));
+                this.dictionary = new Set(sortedArray);
+                this.saveAddedWordsToStorage();
+                return true;
+            }
+
+            addWords(words) {
+                let added = 0;
+                const list = Array.isArray(words) ? words : [words];
+                for (const w of list) {
+                    if (this.addWord(w)) added++;
+                }
+                return added;
+            }
+
+            saveAddedWordsToStorage() {
+                try {
+                    localStorage.setItem('sinhala_added_words', JSON.stringify([...this.addedWords]));
+                } catch (e) { /* ignore */ }
+            }
+
+            loadAddedWordsFromStorage() {
+                try {
+                    const data = localStorage.getItem('sinhala_added_words');
+                    if (data) {
+                        const parsed = JSON.parse(data);
+                        return parsed.map(w => this.normalize(w));
+                    }
+                } catch (e) { /* ignore */ }
+                return [];
+            }
+
+            isAddedWord(word) {
+                return this.addedWords.has(this.normalize(word));
+            }
+
+            getAllWordsSorted() {
+                return [...this.dictionary].sort((a, b) => a.localeCompare(b, 'si'));
+            }
+
+            getStats() {
+                return {
+                    totalWords: this.dictionary.size,
+                    addedWords: this.addedWords.size,
+                    initialized: this.initialized,
+                    filename: this.filename
+                };
+            }
+        }
+
+        // ============================================================
+        // APPLICATION
+        // ============================================================
+
+        const spellChecker = new SinhalaSpellChecker();
+
+        // DOM refs
+        const inputEl = document.getElementById('sinhalaInput');
+        const previewEl = document.getElementById('preview');
+        const resultsEl = document.getElementById('results');
+        const statusText = document.getElementById('statusText');
+        const wordCountEl = document.getElementById('wordCount');
+        const addedCountEl = document.getElementById('addedCount');
+        const wordCountBadge = document.getElementById('wordCountBadge');
+        const fileInput = document.getElementById('fileInput');
+        const fileStatus = document.getElementById('fileStatus');
+        const copyFeedback = document.getElementById('copyFeedback');
+
+        // Context menu elements
+        const contextMenu = document.getElementById('contextMenu');
+
+        // ============================================================
+        // BUILT-IN DICTIONARY (SORTED)
+        // ============================================================
+        const BUILT_IN_WORDS = [
+            'අධ්‍යාපනය', 'අත්‍යවශ්‍යයි', 'අලුත්', 'ආර්ථිකය', 'ආහාර',
+            'ඉගෙනීම', 'උපායමාර්ග', 'එක්ක', 'එය', 'ඒ', 'ඒක',
+            'කර්මාන්ත', 'කාර්යාලය', 'කුඩා', 'කළමනාකරණ', 'ගම',
+            'ගැන', 'ජනගහනය', 'ජලය', 'තාක්ෂණය', 'දත්ත',
+            'දුෂ්කර', 'දිස්ත්‍රික්කය', 'නගරය', 'නවෝත්පාදන', 'නරක',
+            'නිවස', 'නිෂ්පාදන', 'නිසා', 'නිවැරදි', 'පරිගණක',
+            'පරිසරය', 'පර්යේෂණ', 'පරණ', 'පහසු', 'පාරිභෝගික',
+            'පාසල', 'පිළිබඳ', 'පුස්තකාල', 'පළාත', 'ප්‍රදේශය',
+            'බැංකුව', 'භාෂාව', 'මම', 'මන්දගාමී', 'මහාද්වීපය',
+            'මෙය', 'මේ', 'ය', 'රට', 'රැකගැනීම', 'රෝහල',
+            'ලස්සන', 'වන', 'විශාල', 'විශ්වවිද්‍යාල', 'විද්‍යාව',
+            'වේගවත්', 'වෙළඳපොළ', 'වෙළඳසැල', 'ව්‍යාපාර', 'වැඩසටහන',
+            'වැදගත්', 'වැරදි', 'ශක්තිය', 'සමඟ', 'සමාගම', 'සමාජය',
+            'සංවර්ධන', 'සහ', 'සාගරය', 'සිංහල', 'සේවාව', 'සෞඛ්‍යය',
+            'හොඳ', 'හා', 'ඔබ', 'ඔහු', 'ඇය', 'අපි', 'ඔවුන්'
+        ];
+
+        // Initialize
+        spellChecker.initialize(BUILT_IN_WORDS, 'Built-in');
+        updateUI();
+        statusText.textContent = '✅ Ready! Dictionary is sorted.';
+        wordCountBadge.textContent = `${spellChecker.getStats().totalWords} words`;
+
+        // ============================================================
+        // PREVIEW UPDATE – wraps every word in a span
+        // ============================================================
+        function updatePreview() {
+            const text = inputEl.value;
+            if (!text.trim()) {
+                previewEl.innerHTML = '<span style="color:#999;">(Preview will appear here)</span>';
+                return;
+            }
+            const errors = spellChecker.checkText(text);
+            const misspelledSet = new Set(errors.map(e => e.word));
+            // Regex to match Sinhala words (including ZWJ/ZWNJ) and non-word characters
+            const regex = /([\u0D80-\u0DFF\u0E00-\u0E7F\u200C\u200D]+)|([^\u0D80-\u0DFF\u0E00-\u0E7F\u200C\u200D]+)/g;
+            let html = '';
+            let match;
+            while ((match = regex.exec(text)) !== null) {
+                const word = match[1];
+                if (word) {
+                    const isMisspelled = misspelledSet.has(word);
+                    const cls = isMisspelled ? 'word misspelled' : 'word';
+                    html += `<span class="${cls}">${word}</span>`;
+                } else {
+                    // Non-word characters (spaces, punctuation, etc.)
+                    html += match[0];
+                }
+            }
+            previewEl.innerHTML = html;
+        }
+
+        // ============================================================
+        // CHECK TEXT – updates preview, results, and stats
+        // ============================================================
+        function checkText() {
+            const text = inputEl.value;
+            if (!text.trim()) {
+                resultsEl.innerHTML = '<p style="color:#666;">Please enter some text to check.</p>';
+                updatePreview();
+                return;
+            }
+            
+            if (!spellChecker.initialized) {
+                resultsEl.innerHTML = '<p style="color:#e65100;">⏳ Dictionary is loading...</p>';
+                return;
+            }
+            
+            updatePreview();
+            
+            const results = spellChecker.checkText(text);
+            if (results.length === 0) {
+                resultsEl.innerHTML = `
+                    <div class="success">
+                        ✅ සියලුම වචන නිවැරදියි!<br>
+                        <span style="font-size:14px;color:#666;">All words appear to be spelled correctly!</span>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<h3>🔍 වැරදි අක්ෂර වින්‍යාසය සහිත වචන:</h3>';
+            html += '<p style="color:#666;font-size:14px;">Click a suggestion to replace, or use Add/Remove.</p>';
+            
+            for (const result of results) {
+                const isAdded = spellChecker.isAddedWord(result.word);
+                html += `<div class="error-item">
+                    <span class="word-text">❌ "${result.word}"</span>
+                    <div class="suggestion-area">
+                        <span class="label">යෝජනා:</span>
+                        ${result.suggestions.length > 0 ?
+                            result.suggestions.map(s =>
+                                `<span class="suggestion" onclick="replaceWord('${escapeString(result.word)}', '${escapeString(s.word)}')">${s.word}</span>`
+                            ).join(' ') :
+                            '<span style="color:#999;">කිසිදු යෝජනාවක් නැත</span>'
+                        }
+                        <button class="action-btn ${isAdded ? 'remove-btn' : 'add-btn'}" 
+                                onclick="${isAdded ? `removeWord('${escapeString(result.word)}')` : `addWord('${escapeString(result.word)}')`}">
+                            ${isAdded ? '🗑️ Remove' : '➕ Add'}
+                        </button>
+                    </div>
+                </div>`;
+            }
+            resultsEl.innerHTML = html;
+        }
+
+        function escapeString(str) {
+            return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        }
+
+        // ============================================================
+        // REPLACE WORD – updates textarea, preview, and results
+        // ============================================================
+        function replaceWord(oldWord, newWord) {
+            const text = inputEl.value;
+            const newText = text.split(oldWord).join(newWord);
+            inputEl.value = newText;
+            checkText();
+        }
+
+        // ============================================================
+        // ADD & REMOVE WORD
+        // ============================================================
+        function addWord(word) {
+            if (spellChecker.addWord(word)) {
+                showToast(`✅ "${word}" added to dictionary! (List is re-sorted)`, 'success');
+                updateUI();
+                checkText();
+            } else {
+                if (spellChecker.check(word)) {
+                    showToast(`"${word}" is already in the dictionary.`, 'info');
+                } else {
+                    showToast(`❌ Could not add "${word}".`, 'error');
+                }
+            }
+        }
+
+        function removeWord(word) {
+            if (spellChecker.removeWord(word)) {
+                showToast(`🗑️ "${word}" removed from dictionary.`, 'success');
+                updateUI();
+                checkText();
+            } else {
+                showToast(`"${word}" is not a custom word.`, 'error');
+            }
+        }
+
+        // ============================================================
+        // CLEAR
+        // ============================================================
+        function clearAll() {
+            inputEl.value = '';
+            previewEl.innerHTML = '<span style="color:#999;">(Preview will appear here)</span>';
+            resultsEl.innerHTML = '<p style="color:#666;margin:0;">Spelling results will appear here after checking.</p>';
+        }
+
+        // ============================================================
+        // COPY TEXT – copies plain text from textarea
+        // ============================================================
+        function copyText() {
+            const text = inputEl.value;
+            if (!text.trim()) {
+                showToast('Nothing to copy.', 'error');
+                return;
+            }
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showCopyFeedback(true);
+                    showToast('✅ Text copied to clipboard!', 'success');
+                }).catch(() => {
+                    fallbackCopy(text);
+                });
+            } else {
+                fallbackCopy(text);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+                document.execCommand('copy');
+                showCopyFeedback(true);
+                showToast('✅ Text copied to clipboard!', 'success');
+            } catch (e) {
+                showToast('❌ Copy failed. Please copy manually.', 'error');
+            }
+            document.body.removeChild(ta);
+        }
+
+        function showCopyFeedback(show) {
+            copyFeedback.classList.toggle('show', show);
+            if (show) {
+                setTimeout(() => copyFeedback.classList.remove('show'), 3000);
+            }
+        }
+
+        // ============================================================
+        // CONTEXT MENU LOGIC
+        // ============================================================
+        let currentContextWord = null;
+        let currentContextSpan = null;
+
+        function showContextMenu(e, word, span) {
+            e.preventDefault();
+            currentContextWord = word;
+            currentContextSpan = span;
+
+            const suggestions = spellChecker.getSuggestions(word);
+            const isAdded = spellChecker.isAddedWord(word);
+            const isMisspelled = span.classList.contains('misspelled');
+
+            let html = '';
+
+            // If misspelled, show suggestions
+            if (isMisspelled) {
+                if (suggestions.length > 0) {
+                    suggestions.forEach(s => {
+                        html += `<button class="menu-item" data-action="suggest" data-word="${escapeString(s.word)}">
+                            <span class="suggestion-text">${s.word}</span>
+                        </button>`;
+                    });
+                } else {
+                    html += `<div class="menu-item" style="color:#999; cursor:default;">(කිසිදු යෝජනාවක් නැත)</div>`;
+                }
+                html += `<div class="menu-divider"></div>`;
+            }
+
+            // Add / Remove option
+            if (isAdded) {
+                html += `<button class="menu-item remove-word" data-action="remove" data-word="${escapeString(word)}">
+                    🗑️ Remove from Dictionary
+                </button>`;
+            } else {
+                // Only show "Add" if the word is not already in the dictionary (i.e., misspelled)
+                // If it's correctly spelled but not added, we don't show Add (it's already in built-in)
+                if (isMisspelled) {
+                    html += `<button class="menu-item add-word" data-action="add" data-word="${escapeString(word)}">
+                        ➕ Add to Dictionary
+                    </button>`;
+                } else {
+                    // Correctly spelled, not added – no action
+                    html += `<div class="menu-item" style="color:#999; cursor:default;">(Already in dictionary)</div>`;
+                }
+            }
+
+            if (!html) {
+                hideContextMenu();
+                return;
+            }
+
+            contextMenu.innerHTML = html;
+            contextMenu.style.display = 'block';
+            // Position menu within viewport
+            let left = e.clientX;
+            let top = e.clientY;
+            const menuWidth = 200;
+            const menuHeight = 300;
+            if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
+            if (top + menuHeight > window.innerHeight) top = window.innerHeight - menuHeight - 10;
+            contextMenu.style.left = left + 'px';
+            contextMenu.style.top = top + 'px';
+
+            // Attach click handlers
+            contextMenu.querySelectorAll('.menu-item[data-action]').forEach(item => {
+                item.addEventListener('click', function(ev) {
+                    const action = this.dataset.action;
+                    const word = this.dataset.word;
+                    if (action === 'suggest') {
+                        replaceWord(currentContextWord, word);
+                        hideContextMenu();
+                    } else if (action === 'add') {
+                        addWord(currentContextWord);
+                        hideContextMenu();
+                    } else if (action === 'remove') {
+                        removeWord(currentContextWord);
+                        hideContextMenu();
+                    }
+                });
+            });
+        }
+
+        function hideContextMenu() {
+            contextMenu.style.display = 'none';
+            currentContextWord = null;
+            currentContextSpan = null;
+        }
+
+        // ============================================================
+        // EVENT LISTENERS FOR CONTEXT MENU
+        // ============================================================
+        previewEl.addEventListener('contextmenu', function(e) {
+            let target = e.target;
+            let span = null;
+            while (target && target !== previewEl) {
+                if (target.classList && target.classList.contains('word')) {
+                    span = target;
+                    break;
+                }
+                target = target.parentNode;
+            }
+            if (span) {
+                const word = span.textContent.trim();
+                if (word) {
+                    showContextMenu(e, word, span);
+                    return;
+                }
+            }
+            // Not on a word – prevent default browser menu
+            e.preventDefault();
+            hideContextMenu();
+        });
+
+        // Hide menu when clicking elsewhere
+        document.addEventListener('click', function(e) {
+            if (contextMenu.style.display === 'block' && !contextMenu.contains(e.target)) {
+                hideContextMenu();
+            }
+        });
+
+        window.addEventListener('scroll', hideContextMenu);
+        window.addEventListener('resize', hideContextMenu);
+
+        // ============================================================
+        // TEST & UTILITY
+        // ============================================================
+        function insertTestText() {
+            const testText = `සිංහල භාෂාව ලස්සන භාෂාවකි.
+        විද්‍යාව ඉගෙනීම වැදගත් වේ.
+        සෞඛ්‍යය රැකගැනීම අත්‍යවශ්‍යයි.
+        පරිගණක වැඩසටහන් සෑදීම අපගේ කාර්යයයි.
+        නවෝත්පාදන සහ තාක්ෂණය එකට එකතු වේ.
+        
+        මෙම වචනය වැරදි ලෙස ලියා ඇත: පරිගනක (should be පරිගණක)`;
+            inputEl.value = testText;
+            checkText();
+        }
+
+        function addCommonWords() {
+            const more = ['අතිරේක', 'වචන', 'එකතු', 'කිරීම', 'සඳහා', 'මෙම', 'කාර්යය', 'සිදු', 'කරන්න'];
+            const added = spellChecker.addWords(more);
+            updateUI();
+            showToast(`✅ Added ${added} common words. Dictionary re-sorted.`, 'success');
+            checkText();
+        }
+
+        function exportDictionary() {
+            const words = spellChecker.getAllWordsSorted();
+            if (words.length === 0) {
+                showToast('❌ Dictionary is empty.', 'error');
+                return;
+            }
+            let content = '# Sinhala Word List (Sorted Export)\n';
+            content += `# Total words: ${words.length}\n`;
+            content += '# One word per line, UTF-8\n\n';
+            content += words.join('\n');
+            
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'sinhala-dictionary-sorted.txt';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast(`💾 Exported ${words.length} sorted words.`, 'success');
+        }
+
+        function showDictionaryStats() {
+            const stats = spellChecker.getStats();
+            showToast(
+                `📊 Dictionary: ${stats.totalWords} total\n` +
+                `   Added: ${stats.addedWords} custom\n` +
+                `   Source: ${stats.filename}\n` +
+                `   📌 Always sorted alphabetically.`,
+                'info'
+            );
+        }
+
+        // ============================================================
+        // UI UPDATE
+        // ============================================================
+        function updateUI() {
+            const stats = spellChecker.getStats();
+            wordCountEl.textContent = stats.totalWords;
+            addedCountEl.textContent = stats.addedWords;
+            wordCountBadge.textContent = `${stats.totalWords} words`;
+        }
+
+        // ============================================================
+        // FILE UPLOAD
+        // ============================================================
+        fileInput.addEventListener('change', function(e) {
+            const file = this.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const text = event.target.result;
+                const lines = text.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0 && !line.startsWith('#'));
+                if (lines.length === 0) {
+                    showToast('❌ No valid words found in the file.', 'error');
+                    return;
+                }
+                const existingAdded = spellChecker.loadAddedWordsFromStorage();
+                const combined = [...lines, ...existingAdded];
+                spellChecker.initialize(combined, file.name);
+                updateUI();
+                fileStatus.textContent = `✅ Loaded ${lines.length} words from "${file.name}" (sorted)`;
+                fileStatus.style.color = '#2e7d32';
+                showToast(`✅ Loaded ${lines.length} words from ${file.name}`, 'success');
+                checkText();
+            };
+            reader.onerror = function() {
+                showToast('❌ Error reading file.', 'error');
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        // ============================================================
+        // TOAST
+        // ============================================================
+        let toastTimeout;
+
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast ' + type;
+            void toast.offsetWidth;
+            toast.classList.add('show');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => {
+                toast.classList.remove('show');
+            }, 4000);
+        }
+
+        // ============================================================
+        // AUTO-CHECK WITH DEBOUNCE
+        // ============================================================
+        let debounceTimer;
+        inputEl.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(checkText, 600);
+        });
+
+        inputEl.addEventListener('paste', function() {
+            setTimeout(checkText, 100);
+        });
+
+        // Initial check after load
+        setTimeout(checkText, 300);
+    </script>
+</body>
+</html>
