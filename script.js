@@ -19,7 +19,7 @@ class SinhalaSpellChecker {
             'අව', 'දුශ්', 'දුර්', 'ප', 'ප්‍ර', 'උප', 'න', 'නා', 'නො',
             'නි', 'නී', 'නු', 'නූ', 'නෙ', 'නේ', 'අ', 'ආ', 'අන්',
             'අනු', 'නිර්', 'නිරා', 'නිශ්', 'නිශා', 'සහ', 'ඉ', 'විශ්ව',
-            'බිම්', 'අභි', 'අති', 'මිහි', 'අව' 
+            'බිම්', 'අභි', 'අති', 'මිහි', 'අව', 'පර', 'බහු' 
         ];
         // Suffixes to strip: if word ends with one and the base part is in dictionary
         this.suffixesToStrip = [
@@ -28,7 +28,7 @@ class SinhalaSpellChecker {
             'ශීලි', 'වන්ත', 'කරු', 'කාර', 'කාරී', 'ගුලු', 'සුලු',
             'වර', 'වාද', 'වාදි', 'කට', 'ය', 'ව', 'තා', 'හු', 'වෝ',
             'යා', 'හි', 'න්', 'ගේ', 'ට', 'ගෙන්', 'වල', 'වලින්', 'වලට',
-            'වතා', 'තාව', 'වෙන්', 'යේ', 'ක්', 'යෙන්', 'වා'
+            'වතා', 'තාව', 'වෙන්', 'යේ', 'ක්', 'යෙන්', 'වා', 'යෙහි', 'කි'
         ];
         // Sort suffix list by length descending to handle overlapping suffixes
         this.suffixesToStrip.sort((a, b) => b.length - a.length);
