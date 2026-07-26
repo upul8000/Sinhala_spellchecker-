@@ -25,7 +25,9 @@ class SinhalaSpellChecker {
             'වත්', 'ත්ව', 'ත්වය', 'මුවා', 'මය', 'මත්', 'තර', 'තම',
             'ක', 'වාදී', 'ධර', 'ධාරී', 'වෙනි', 'පති', 'කාමී',
             'ශීලි', 'වන්ත', 'කරු', 'කාර', 'කාරී', 'ගුලු', 'සුලු',
-            'වර', 'වාද', 'වාදි', 'කට', 'ය', 'ව'
+            'වර', 'වාද', 'වාදි', 'කට', 'ය', 'ව', 'තා', 'හු', 'වෝ',
+            'යා', 'හි', 'න්', 'ගේ', 'ට', 'ගෙන්', 'වල', 'වලින්', 'වලට',
+            'වතා', 'තාව' 
         ];
         // Sort suffix list by length descending to handle overlapping suffixes
         this.suffixesToStrip.sort((a, b) => b.length - a.length);
@@ -183,7 +185,7 @@ class SinhalaSpellChecker {
                 results.push({
                     word: splitWord,
                     distance: 1,
-                    score: 0.5
+                    score: 0.95
                 });
             }
         }
