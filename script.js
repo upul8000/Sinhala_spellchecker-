@@ -25,7 +25,7 @@ class SinhalaSpellChecker {
             'වත්', 'ත්ව', 'ත්වය', 'මුවා', 'මය', 'මත්', 'තර', 'තම',
             'ක', 'වාදී', 'ධර', 'ධාරී', 'වෙනි', 'පති', 'කාමී',
             'ශීලි', 'වන්ත', 'කරු', 'කාර', 'කාරී', 'ගුලු', 'සුලු',
-            'වර', 'වාද', 'වාදි', 'කට'
+            'වර', 'වාද', 'වාදි', 'කට', 'ය', 'ව'
         ];
         // Sort suffix list by length descending to handle overlapping suffixes
         this.suffixesToStrip.sort((a, b) => b.length - a.length);
