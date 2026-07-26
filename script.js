@@ -1,5 +1,5 @@
 // ============================================================
-// SINHALA SPELL CHECKER – with Add & Remove + Suffix Split Rule
+// SINHALA SPELL CHECKER – with Add & Remove + Compound Word Support
 // ============================================================
 
 class SinhalaSpellChecker {
@@ -41,9 +41,48 @@ class SinhalaSpellChecker {
         return word.trim().replace(/\s+/g, ' ').normalize('NFC');
     }
 
+    // ----- NEW: compound word segmentation -----
+    getSegmentation(word) {
+        // Returns an array of parts if the word can be split into >=2 dictionary words,
+        // each at least 2 characters long. Otherwise returns null.
+        const memo = new Map(); // start index -> array of parts or null
+        const n = word.length;
+
+        const dfs = (start) => {
+            if (start === n) return [];
+            if (memo.has(start)) return memo.get(start);
+
+            for (let end = start + 2; end <= n; end++) {
+                const part = word.substring(start, end);
+                if (this.dictionary.has(part)) {
+                    const rest = dfs(end);
+                    if (rest !== null) {
+                        const result = [part, ...rest];
+                        memo.set(start, result);
+                        return result;
+                    }
+                }
+            }
+            memo.set(start, null);
+            return null;
+        };
+
+        const result = dfs(0);
+        if (result && result.length >= 2) {
+            return result;
+        }
+        return null;
+    }
+
+    // ----- MODIFIED: check now also handles compound words -----
     check(word) {
         if (!this.initialized) return false;
-        return this.dictionary.has(this.normalize(word));
+        const normalized = this.normalize(word);
+        // 1. Direct dictionary hit
+        if (this.dictionary.has(normalized)) return true;
+        // 2. Compound word: can be split into >=2 valid parts
+        const seg = this.getSegmentation(normalized);
+        return seg !== null && seg.length >= 2;
     }
 
     tokenize(text) {
@@ -59,7 +98,7 @@ class SinhalaSpellChecker {
         const misspelled = [];
         for (const word of words) {
             if (word.length < 2) continue;
-            if (!this.dictionary.has(word)) {
+            if (!this.check(word)) { // uses the extended check
                 misspelled.push({
                     word: word,
                     suggestions: this.getSuggestions(word)
@@ -91,29 +130,24 @@ class SinhalaSpellChecker {
         // 2. Split-suffix suggestions (if word ends with any suffix)
         const splitSuggestions = this.getSplitSuggestions(normalized);
         for (const splitWord of splitSuggestions) {
-            // Avoid duplicates (if the split form already exists in results)
             if (!results.some(r => r.word === splitWord)) {
                 results.push({
                     word: splitWord,
-                    distance: 1,        // artificial distance, will be ranked lower
-                    score: 0.95          // arbitrary score below most dictionary hits
+                    distance: 1,
+                    score: 0.5
                 });
             }
         }
 
-        // Sort by score descending (higher is better)
         results.sort((a, b) => b.score - a.score);
-        // Limit to maxSuggestions
         return results.slice(0, this.maxSuggestions);
     }
 
-    // New helper: split the word if it ends with a known suffix
     getSplitSuggestions(word) {
         const suggestions = [];
         for (const suffix of this.suffixes) {
             if (word.endsWith(suffix)) {
                 const prefix = word.slice(0, -suffix.length);
-                // Only suggest if prefix is not empty (avoid just a suffix)
                 if (prefix.length > 0) {
                     suggestions.push(prefix + ' ' + suffix);
                 }
@@ -501,7 +535,6 @@ function showContextMenu(e, word, span) {
 
     let html = '';
 
-    // If misspelled, show suggestions
     if (isMisspelled) {
         if (suggestions.length > 0) {
             suggestions.forEach(s => {
@@ -515,7 +548,6 @@ function showContextMenu(e, word, span) {
         html += `<div class="menu-divider"></div>`;
     }
 
-    // Add / Remove option
     if (isAdded) {
         html += `<button class="menu-item remove-word" data-action="remove" data-word="${escapeString(word)}">
                     🗑️ Remove from Dictionary
@@ -614,7 +646,8 @@ function insertTestText() {
     නවෝත්පාදන සහ තාක්ෂණය එකට එකතු වේ.
     
     මෙම වචනය වැරදි ලෙස ලියා ඇත: පරිගනක (should be පරිගණක)
-    දෙපිළම (should be දෙපිළ ම) – split suggestion should appear.`;
+    දෙපිළම (should be දෙපිළ ම) – split suggestion should appear.
+    මැටිබඳුන් – if both 'මැටි' and 'බඳුන්' are in dictionary, this should be marked correct.`;
     inputEl.value = testText;
     checkText();
 }
