@@ -19,7 +19,7 @@ class SinhalaSpellChecker {
             'අව', 'දුශ්', 'දුර්', 'ප', 'ප්‍ර', 'උප', 'න', 'නා', 'නො',
             'නි', 'නී', 'නු', 'නූ', 'නෙ', 'නේ', 'අ', 'ආ', 'අන්',
             'අනු', 'නිර්', 'නිරා', 'නිශ්', 'නිශා', 'සහ', 'ඉ', 'විශ්ව',
-            'බිම්', 'අභි', 'අති' 
+            'බිම්', 'අභි', 'අති', 'මිහි' 
         ];
         // Suffixes to strip: if word ends with one and the base part is in dictionary
         this.suffixesToStrip = [
