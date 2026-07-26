@@ -1,5 +1,6 @@
 // ============================================================
 // SINHALA SPELL CHECKER – with Add & Remove + Compound Word Support
+// + Prefix-stripping rule
 // ============================================================
 
 class SinhalaSpellChecker {
@@ -12,6 +13,13 @@ class SinhalaSpellChecker {
         this.filename = 'Built-in';
         // Suffixes that are sometimes written separately
         this.suffixes = ['ය', 'යි', 'ම', 'ව', 'ද'];
+        // Prefixes to strip: if word starts with one and the remainder is in dictionary, word is correct
+        this.prefixes = [
+            'යාව', 'යථා', 'තාව', 'තත්', 'සං', 'කු', 'දු', 'සු', 'ස',
+            'අව', 'දුශ්', 'දුර්', 'ප', 'ප්‍ර', 'උප', 'න', 'නා', 'නො',
+            'නි', 'නී', 'නු', 'නූ', 'නෙ', 'නේ', 'අ', 'ආ', 'අන්',
+            'අනු', 'නිර්', 'නිරා', 'නිශ්', 'නිශා', 'සහ', 'ඉ'
+        ];
     }
 
     static sortSinhala(words) {
@@ -41,7 +49,21 @@ class SinhalaSpellChecker {
         return word.trim().replace(/\s+/g, ' ').normalize('NFC');
     }
 
-    // ----- NEW: compound word segmentation -----
+    // ----- NEW: strip prefixes -----
+    stripPrefix(word) {
+        for (const prefix of this.prefixes) {
+            if (word.startsWith(prefix)) {
+                const remainder = word.substring(prefix.length);
+                // remainder must be non‑empty and in the dictionary
+                if (remainder.length > 0 && this.dictionary.has(remainder)) {
+                    return remainder;
+                }
+            }
+        }
+        return null;
+    }
+
+    // ----- compound word segmentation -----
     getSegmentation(word) {
         // Returns an array of parts if the word can be split into >=2 dictionary words,
         // each at least 2 characters long. Otherwise returns null.
@@ -74,13 +96,16 @@ class SinhalaSpellChecker {
         return null;
     }
 
-    // ----- MODIFIED: check now also handles compound words -----
+    // ----- MODIFIED: check now also handles prefix stripping and compound words -----
     check(word) {
         if (!this.initialized) return false;
         const normalized = this.normalize(word);
         // 1. Direct dictionary hit
         if (this.dictionary.has(normalized)) return true;
-        // 2. Compound word: can be split into >=2 valid parts
+        // 2. Prefix stripping: remove a known prefix and test the remainder
+        const stripped = this.stripPrefix(normalized);
+        if (stripped !== null && this.dictionary.has(stripped)) return true;
+        // 3. Compound word: can be split into >=2 valid parts
         const seg = this.getSegmentation(normalized);
         return seg !== null && seg.length >= 2;
     }
@@ -647,7 +672,15 @@ function insertTestText() {
     
     මෙම වචනය වැරදි ලෙස ලියා ඇත: පරිගනක (should be පරිගණක)
     දෙපිළම (should be දෙපිළ ම) – split suggestion should appear.
-    මැටිබඳුන් – if both 'මැටි' and 'බඳුන්' are in dictionary, this should be marked correct.`;
+    මැටිබඳුන් – if both 'මැටි' and 'බඳුන්' are in dictionary, this should be marked correct.
+    
+    Prefix-stripping examples:
+    යාවජීව – should be correct if ජීව is in dictionary.
+    යථාතත්ත්වය – should be correct if තත්ත්වය is in dictionary.
+    අනුරූප – should be correct if රූප is in dictionary.
+    සුගඳ – should be correct if ගඳ is in dictionary.
+    කුමන්ත්‍රණ – should be correct if මන්ත්‍රණ is in dictionary.
+    දුසිරිත් – should be correct if සිරිත් is in dictionary.`;
     inputEl.value = testText;
     checkText();
 }
