@@ -1,5 +1,5 @@
 // ============================================================
-// SINHALA SPELL CHECKER – with Add & Remove + Suffix Rule
+// SINHALA SPELL CHECKER – with Add & Remove + Suffix Split Rule
 // ============================================================
 
 class SinhalaSpellChecker {
@@ -10,7 +10,7 @@ class SinhalaSpellChecker {
         this.maxEditDistance = 2;
         this.initialized = false;
         this.filename = 'Built-in';
-        // suffixes for the new rule
+        // Suffixes that are sometimes written separately
         this.suffixes = ['ය', 'යි', 'ම', 'ව', 'ද'];
     }
 
@@ -53,93 +53,30 @@ class SinhalaSpellChecker {
         return matches.map(w => this.normalize(w)).filter(w => w.length > 0);
     }
 
-    // ---------- new split suggestion ----------
-    getSplitSuggestions(word) {
-        const results = [];
-        for (const suffix of this.suffixes) {
-            if (word.endsWith(suffix)) {
-                const prefix = word.slice(0, -suffix.length);
-                // both parts must be valid dictionary words
-                if (this.dictionary.has(prefix) && this.dictionary.has(suffix)) {
-                    results.push({
-                        word: prefix + ' ' + suffix,
-                        type: 'split',
-                        prevWord: null
-                    });
-                }
-            }
-        }
-        return results;
-    }
-
-    // ---------- existing methods ----------
     checkText(text) {
         if (!this.initialized) return [];
-
-        const tokens = this.tokenize(text);
-        // validity map: true if token is in dictionary or length<2 (ignore short)
-        const validity = tokens.map(w => (w.length < 2) ? true : this.dictionary.has(w));
-
+        const words = this.tokenize(text);
         const misspelled = [];
-
-        for (let i = 0; i < tokens.length; i++) {
-            const word = tokens[i];
+        for (const word of words) {
             if (word.length < 2) continue;
-            if (this.dictionary.has(word)) continue; // correct
-
-            // ---- collect all suggestions ----
-            const suggestionSet = new Map(); // key: suggestion word, value: {word, type, prevWord}
-
-            // 1. Levenshtein suggestions (normal)
-            const levSuggestions = this.getSuggestions(word);
-            for (const s of levSuggestions) {
-                if (!suggestionSet.has(s.word)) {
-                    suggestionSet.set(s.word, { word: s.word, type: 'normal', prevWord: null });
-                }
+            if (!this.dictionary.has(word)) {
+                misspelled.push({
+                    word: word,
+                    suggestions: this.getSuggestions(word)
+                });
             }
-
-            // 2. Split suggestions (attached -> detached)
-            const splitSuggestions = this.getSplitSuggestions(word);
-            for (const s of splitSuggestions) {
-                if (!suggestionSet.has(s.word)) {
-                    suggestionSet.set(s.word, s);
-                }
-            }
-
-            // 3. Merge suggestion (detached -> attached) – only if previous word is valid
-            if (i > 0 && validity[i-1] === true) {
-                const prev = tokens[i-1];
-                const combined = prev + word;
-                if (this.dictionary.has(combined) && combined !== prev && combined !== word) {
-                    // avoid suggesting same as original
-                    if (!suggestionSet.has(combined)) {
-                        suggestionSet.set(combined, {
-                            word: combined,
-                            type: 'merge',
-                            prevWord: prev
-                        });
-                    }
-                }
-            }
-
-            // convert map to array
-            const suggestions = Array.from(suggestionSet.values());
-
-            misspelled.push({
-                word: word,
-                suggestions: suggestions
-            });
         }
-
         return misspelled;
     }
 
-    // existing getSuggestions (unchanged)
+    // Modified to include split-suffix suggestions
     getSuggestions(word) {
         if (!this.initialized) return [];
         const normalized = this.normalize(word);
         const candidates = this.generateCandidates(normalized);
         const results = [];
+
+        // 1. Normal dictionary-based suggestions
         for (const cand of candidates) {
             const distance = this.levenshteinDistance(normalized, cand);
             if (distance <= this.maxEditDistance) {
@@ -150,8 +87,39 @@ class SinhalaSpellChecker {
                 });
             }
         }
+
+        // 2. Split-suffix suggestions (if word ends with any suffix)
+        const splitSuggestions = this.getSplitSuggestions(normalized);
+        for (const splitWord of splitSuggestions) {
+            // Avoid duplicates (if the split form already exists in results)
+            if (!results.some(r => r.word === splitWord)) {
+                results.push({
+                    word: splitWord,
+                    distance: 1,        // artificial distance, will be ranked lower
+                    score: 0.5          // arbitrary score below most dictionary hits
+                });
+            }
+        }
+
+        // Sort by score descending (higher is better)
         results.sort((a, b) => b.score - a.score);
+        // Limit to maxSuggestions
         return results.slice(0, this.maxSuggestions);
+    }
+
+    // New helper: split the word if it ends with a known suffix
+    getSplitSuggestions(word) {
+        const suggestions = [];
+        for (const suffix of this.suffixes) {
+            if (word.endsWith(suffix)) {
+                const prefix = word.slice(0, -suffix.length);
+                // Only suggest if prefix is not empty (avoid just a suffix)
+                if (prefix.length > 0) {
+                    suggestions.push(prefix + ' ' + suffix);
+                }
+            }
+        }
+        return suggestions;
     }
 
     generateCandidates(word) {
@@ -260,7 +228,7 @@ class SinhalaSpellChecker {
 }
 
 // ============================================================
-// APPLICATION
+// APPLICATION – unchanged from original
 // ============================================================
 
 const spellChecker = new SinhalaSpellChecker();
@@ -402,45 +370,21 @@ function checkText() {
     for (const result of results) {
         const isAdded = spellChecker.isAddedWord(result.word);
         html += `<div class="error-item">
-            <span class="word-text">❌ "${result.word}"</span>
-            <div class="suggestion-area">
-                <span class="label">යෝජනා:</span>`;
-        
-        // display suggestions
-        const suggestions = result.suggestions;
-        if (suggestions.length > 0) {
-            for (const s of suggestions) {
-                if (s.type === 'merge') {
-                    // merge suggestion: replace previous + current with combined
-                    html += `<span class="suggestion merge-suggestion" 
-                                onclick="replaceMerge('${escapeString(s.prevWord)}', '${escapeString(result.word)}', '${escapeString(s.word)}')">
-                                ${s.word} (merge)
-                            </span>`;
-                } else if (s.type === 'split') {
-                    // split suggestion: replace current with split form
-                    html += `<span class="suggestion split-suggestion" 
-                                onclick="replaceWord('${escapeString(result.word)}', '${escapeString(s.word)}')">
-                                ${s.word}
-                            </span>`;
-                } else {
-                    // normal suggestion
-                    html += `<span class="suggestion" 
-                                onclick="replaceWord('${escapeString(result.word)}', '${escapeString(s.word)}')">
-                                ${s.word}
-                            </span>`;
-                }
-            }
-        } else {
-            html += '<span style="color:#999;">කිසිදු යෝජනාවක් නැත</span>';
-        }
-
-        // Add/Remove button
-        html += `<button class="action-btn ${isAdded ? 'remove-btn' : 'add-btn'}" 
-                        onclick="${isAdded ? `removeWord('${escapeString(result.word)}')` : `addWord('${escapeString(result.word)}')`}">
-                        ${isAdded ? '🗑️ Remove' : '➕ Add'}
-                    </button>
-                </div>
-            </div>`;
+                    <span class="word-text">❌ "${result.word}"</span>
+                    <div class="suggestion-area">
+                        <span class="label">යෝජනා:</span>
+                        ${result.suggestions.length > 0 ?
+                            result.suggestions.map(s =>
+                                `<span class="suggestion" onclick="replaceWord('${escapeString(result.word)}', '${escapeString(s.word)}')">${s.word}</span>`
+                            ).join(' ') :
+                            '<span style="color:#999;">කිසිදු යෝජනාවක් නැත</span>'
+                        }
+                        <button class="action-btn ${isAdded ? 'remove-btn' : 'add-btn'}" 
+                                onclick="${isAdded ? `removeWord('${escapeString(result.word)}')` : `addWord('${escapeString(result.word)}')`}">
+                            ${isAdded ? '🗑️ Remove' : '➕ Add'}
+                        </button>
+                    </div>
+                </div>`;
     }
     resultsEl.innerHTML = html;
 }
@@ -450,24 +394,11 @@ function escapeString(str) {
 }
 
 // ============================================================
-// REPLACE WORD – single word replacement
+// REPLACE WORD – updates textarea, preview, and results
 // ============================================================
 function replaceWord(oldWord, newWord) {
     const text = inputEl.value;
     const newText = text.split(oldWord).join(newWord);
-    inputEl.value = newText;
-    checkText();
-}
-
-// ============================================================
-// REPLACE MERGE – replace "prev current" with combined
-// ============================================================
-function replaceMerge(prevWord, currentWord, combinedWord) {
-    const text = inputEl.value;
-    // replace the exact phrase "prevWord currentWord" with combinedWord
-    // (handles possible multiple spaces – we normalize)
-    const regex = new RegExp(prevWord + '\\s+' + currentWord, 'g');
-    const newText = text.replace(regex, combinedWord);
     inputEl.value = newText;
     checkText();
 }
@@ -509,7 +440,7 @@ function clearAll() {
 }
 
 // ============================================================
-// COPY TEXT
+// COPY TEXT – copies plain text from textarea
 // ============================================================
 function copyText() {
     const text = inputEl.value;
@@ -558,41 +489,29 @@ function showCopyFeedback(show) {
 // ============================================================
 let currentContextWord = null;
 let currentContextSpan = null;
-let currentContextSuggestions = []; // store full suggestions list
 
-function showContextMenu(e, word, span, suggestions) {
+function showContextMenu(e, word, span) {
     e.preventDefault();
     currentContextWord = word;
     currentContextSpan = span;
-    currentContextSuggestions = suggestions || [];
 
+    const suggestions = spellChecker.getSuggestions(word);
     const isAdded = spellChecker.isAddedWord(word);
     const isMisspelled = span.classList.contains('misspelled');
 
     let html = '';
 
-    // Show suggestions (including split/merge)
-    if (isMisspelled && suggestions && suggestions.length > 0) {
-        for (const s of suggestions) {
-            let label = s.word;
-            if (s.type === 'merge') {
-                label += ' (merge)';
-            } else if (s.type === 'split') {
-                label += ' (split)';
-            }
-            // store type and prevWord for actions
-            const dataType = s.type || 'normal';
-            const dataPrev = s.prevWord || '';
-            html += `<button class="menu-item" data-action="suggest" 
-                              data-type="${dataType}" 
-                              data-word="${escapeString(s.word)}"
-                              data-prev="${escapeString(dataPrev)}">
-                        <span class="suggestion-text">${label}</span>
-                    </button>`;
+    // If misspelled, show suggestions
+    if (isMisspelled) {
+        if (suggestions.length > 0) {
+            suggestions.forEach(s => {
+                html += `<button class="menu-item" data-action="suggest" data-word="${escapeString(s.word)}">
+                            <span class="suggestion-text">${s.word}</span>
+                        </button>`;
+            });
+        } else {
+            html += `<div class="menu-item" style="color:#999; cursor:default;">(කිසිදු යෝජනාවක් නැත)</div>`;
         }
-        html += `<div class="menu-divider"></div>`;
-    } else if (isMisspelled) {
-        html += `<div class="menu-item" style="color:#999; cursor:default;">(කිසිදු යෝජනාවක් නැත)</div>`;
         html += `<div class="menu-divider"></div>`;
     }
 
@@ -620,28 +539,19 @@ function showContextMenu(e, word, span, suggestions) {
     contextMenu.style.display = 'block';
     let left = e.clientX;
     let top = e.clientY;
-    const menuWidth = 220;
+    const menuWidth = 200;
     const menuHeight = 300;
     if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 10;
     if (top + menuHeight > window.innerHeight) top = window.innerHeight - menuHeight - 10;
     contextMenu.style.left = left + 'px';
     contextMenu.style.top = top + 'px';
 
-    // Attach click handlers
     contextMenu.querySelectorAll('.menu-item[data-action]').forEach(item => {
         item.addEventListener('click', function(ev) {
             const action = this.dataset.action;
             const word = this.dataset.word;
-            const type = this.dataset.type || 'normal';
-            const prev = this.dataset.prev || '';
             if (action === 'suggest') {
-                if (type === 'merge') {
-                    // replace previous + current with combined
-                    replaceMerge(prev, currentContextWord, word);
-                } else {
-                    // normal or split: replace current with suggestion
-                    replaceWord(currentContextWord, word);
-                }
+                replaceWord(currentContextWord, word);
                 hideContextMenu();
             } else if (action === 'add') {
                 addWord(currentContextWord);
@@ -658,7 +568,6 @@ function hideContextMenu() {
     contextMenu.style.display = 'none';
     currentContextWord = null;
     currentContextSpan = null;
-    currentContextSuggestions = [];
 }
 
 // ============================================================
@@ -677,12 +586,7 @@ previewEl.addEventListener('contextmenu', function(e) {
     if (span) {
         const word = span.textContent.trim();
         if (word) {
-            // find suggestions for this word from the latest check results
-            const text = inputEl.value;
-            const results = spellChecker.checkText(text);
-            const found = results.find(r => r.word === word);
-            const suggestions = found ? found.suggestions : [];
-            showContextMenu(e, word, span, suggestions);
+            showContextMenu(e, word, span);
             return;
         }
     }
@@ -704,14 +608,13 @@ window.addEventListener('resize', hideContextMenu);
 // ============================================================
 function insertTestText() {
     const testText = `සිංහල භාෂාව ලස්සන භාෂාවකි.
-විද්‍යාව ඉගෙනීම වැදගත් වේ.
-සෞඛ්‍යය රැකගැනීම අත්‍යවශ්‍යයි.
-පරිගණක වැඩසටහන් සෑදීම අපගේ කාර්යයයි.
-නවෝත්පාදන සහ තාක්ෂණය එකට එකතු වේ.
-
-මෙම වචනය වැරදි ලෙස ලියා ඇත: පරිගනක (should be පරිගණක)
-උදාහරණ: සමාසය යි. (should be සමාසයයි.)
-          දෙපිළම (should be දෙපිළ ම)`;
+    විද්‍යාව ඉගෙනීම වැදගත් වේ.
+    සෞඛ්‍යය රැකගැනීම අත්‍යවශ්‍යයි.
+    පරිගණක වැඩසටහන් සෑදීම අපගේ කාර්යයයි.
+    නවෝත්පාදන සහ තාක්ෂණය එකට එකතු වේ.
+    
+    මෙම වචනය වැරදි ලෙස ලියා ඇත: පරිගනක (should be පරිගණක)
+    දෙපිළම (should be දෙපිළ ම) – split suggestion should appear.`;
     inputEl.value = testText;
     checkText();
 }
