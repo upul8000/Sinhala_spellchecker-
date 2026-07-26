@@ -1,6 +1,6 @@
 // ============================================================
 // SINHALA SPELL CHECKER – with Add & Remove + Compound Word Support
-// + Prefix-stripping rule
+// + Prefix‑ & Suffix‑stripping rules
 // ============================================================
 
 class SinhalaSpellChecker {
@@ -11,15 +11,24 @@ class SinhalaSpellChecker {
         this.maxEditDistance = 2;
         this.initialized = false;
         this.filename = 'Built-in';
-        // Suffixes that are sometimes written separately
+        // Suffixes that are sometimes written separately (for suggestions)
         this.suffixes = ['ය', 'යි', 'ම', 'ව', 'ද'];
-        // Prefixes to strip: if word starts with one and the remainder is in dictionary, word is correct
+        // Prefixes to strip: if word starts with one and the remainder is in dictionary
         this.prefixes = [
             'යාව', 'යථා', 'තාව', 'තත්', 'සං', 'කු', 'දු', 'සු', 'ස',
             'අව', 'දුශ්', 'දුර්', 'ප', 'ප්‍ර', 'උප', 'න', 'නා', 'නො',
             'නි', 'නී', 'නු', 'නූ', 'නෙ', 'නේ', 'අ', 'ආ', 'අන්',
             'අනු', 'නිර්', 'නිරා', 'නිශ්', 'නිශා', 'සහ', 'ඉ'
         ];
+        // Suffixes to strip: if word ends with one and the base part is in dictionary
+        this.suffixesToStrip = [
+            'වත්', 'ත්ව', 'ත්වය', 'මුවා', 'මය', 'මත්', 'තර', 'තම',
+            'ක', 'වාදී', 'ධර', 'ධාරී', 'වෙනි', 'පති', 'කාමී',
+            'ශීලි', 'වන්ත', 'කරු', 'කාර', 'කාරී', 'ගුලු', 'සුලු',
+            'වර', 'වාද', 'වාදි'
+        ];
+        // Sort suffix list by length descending to handle overlapping suffixes
+        this.suffixesToStrip.sort((a, b) => b.length - a.length);
     }
 
     static sortSinhala(words) {
@@ -49,14 +58,26 @@ class SinhalaSpellChecker {
         return word.trim().replace(/\s+/g, ' ').normalize('NFC');
     }
 
-    // ----- NEW: strip prefixes -----
+    // ----- Strip prefix -----
     stripPrefix(word) {
         for (const prefix of this.prefixes) {
             if (word.startsWith(prefix)) {
                 const remainder = word.substring(prefix.length);
-                // remainder must be non‑empty and in the dictionary
                 if (remainder.length > 0 && this.dictionary.has(remainder)) {
                     return remainder;
+                }
+            }
+        }
+        return null;
+    }
+
+    // ----- Strip suffix -----
+    stripSuffix(word) {
+        for (const suffix of this.suffixesToStrip) {
+            if (word.endsWith(suffix)) {
+                const base = word.slice(0, -suffix.length);
+                if (base.length > 0 && this.dictionary.has(base)) {
+                    return base;
                 }
             }
         }
@@ -96,16 +117,19 @@ class SinhalaSpellChecker {
         return null;
     }
 
-    // ----- MODIFIED: check now also handles prefix stripping and compound words -----
+    // ----- MODIFIED: check now handles prefix, suffix, and compound words -----
     check(word) {
         if (!this.initialized) return false;
         const normalized = this.normalize(word);
         // 1. Direct dictionary hit
         if (this.dictionary.has(normalized)) return true;
-        // 2. Prefix stripping: remove a known prefix and test the remainder
-        const stripped = this.stripPrefix(normalized);
-        if (stripped !== null && this.dictionary.has(stripped)) return true;
-        // 3. Compound word: can be split into >=2 valid parts
+        // 2. Prefix stripping
+        const strippedPrefix = this.stripPrefix(normalized);
+        if (strippedPrefix !== null && this.dictionary.has(strippedPrefix)) return true;
+        // 3. Suffix stripping
+        const strippedSuffix = this.stripSuffix(normalized);
+        if (strippedSuffix !== null && this.dictionary.has(strippedSuffix)) return true;
+        // 4. Compound word segmentation
         const seg = this.getSegmentation(normalized);
         return seg !== null && seg.length >= 2;
     }
@@ -123,7 +147,7 @@ class SinhalaSpellChecker {
         const misspelled = [];
         for (const word of words) {
             if (word.length < 2) continue;
-            if (!this.check(word)) { // uses the extended check
+            if (!this.check(word)) {
                 misspelled.push({
                     word: word,
                     suggestions: this.getSuggestions(word)
@@ -680,7 +704,14 @@ function insertTestText() {
     අනුරූප – should be correct if රූප is in dictionary.
     සුගඳ – should be correct if ගඳ is in dictionary.
     කුමන්ත්‍රණ – should be correct if මන්ත්‍රණ is in dictionary.
-    දුසිරිත් – should be correct if සිරිත් is in dictionary.`;
+    දුසිරිත් – should be correct if සිරිත් is in dictionary.
+    
+    Suffix-stripping examples:
+    ගුණවත් – should be correct if ගුණ is in dictionary.
+    ශිෂ්‍යත්ව – should be correct if ශිෂ්‍ය is in dictionary.
+    ශිෂ්‍යත්වය – should be correct if ශිෂ්‍ය is in dictionary.
+    රන්මුවා – should be correct if රන් is in dictionary.
+    රන්මය – should be correct if රන් is in dictionary.`;
     inputEl.value = testText;
     checkText();
 }
