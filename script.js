@@ -96,7 +96,7 @@ class SinhalaSpellChecker {
                 results.push({
                     word: splitWord,
                     distance: 1,        // artificial distance, will be ranked lower
-                    score: 0.5          // arbitrary score below most dictionary hits
+                    score: 0.95          // arbitrary score below most dictionary hits
                 });
             }
         }
