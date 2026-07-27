@@ -1,6 +1,7 @@
 // ============================================================
 // SINHALA SPELL CHECKER – with Add & Remove + Compound Word Support
-// + Prefix‑ & Suffix‑stripping rules
+// + Prefix‑ & Suffix‑stripping rules (including combined stripping)
+// + Recursive compound part validation
 // ============================================================
 
 class SinhalaSpellChecker {
@@ -20,7 +21,7 @@ class SinhalaSpellChecker {
             'නි', 'නී', 'නු', 'නූ', 'නෙ', 'නේ', 'අ', 'ආ', 'අන්',
             'අනු', 'නිර්', 'නිරා', 'නිශ්', 'නිශා', 'සහ', 'ඉ', 'විශ්ව',
             'බිම්', 'අභි', 'අති', 'මිහි', 'අව', 'පර', 'බහු', 'දෙ', 'තුන්',
-            'සිව්'
+            'සිව්', 'තෙ'
         ];
         // Suffixes to strip: if word ends with one and the base part is in dictionary
         this.suffixesToStrip = [
@@ -88,9 +89,36 @@ class SinhalaSpellChecker {
         return null;
     }
 
-    // ----- compound word segmentation -----
+    // ----- Basic validation (no compound) -----
+    _basicCheck(word) {
+        const normalized = this.normalize(word);
+        // 1. Direct dictionary hit
+        if (this.dictionary.has(normalized)) return true;
+        // 2. Prefix stripping only
+        const strippedPrefix = this.stripPrefix(normalized);
+        if (strippedPrefix !== null && this.dictionary.has(strippedPrefix)) return true;
+        // 3. Suffix stripping only
+        const strippedSuffix = this.stripSuffix(normalized);
+        if (strippedSuffix !== null && this.dictionary.has(strippedSuffix)) return true;
+        // 4. Combined prefix AND suffix stripping
+        for (const prefix of this.prefixes) {
+            if (normalized.startsWith(prefix)) {
+                for (const suffix of this.suffixesToStrip) {
+                    if (normalized.endsWith(suffix)) {
+                        const middle = normalized.substring(prefix.length, normalized.length - suffix.length);
+                        if (middle.length > 0 && this.dictionary.has(middle)) {
+                            return true;
+                        }
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    // ----- compound word segmentation (uses basicCheck for each part) -----
     getSegmentation(word) {
-        // Returns an array of parts if the word can be split into >=2 dictionary words,
+        // Returns an array of parts if the word can be split into >=2 valid parts,
         // each at least 2 characters long. Otherwise returns null.
         const memo = new Map(); // start index -> array of parts or null
         const n = word.length;
@@ -101,7 +129,8 @@ class SinhalaSpellChecker {
 
             for (let end = start + 2; end <= n; end++) {
                 const part = word.substring(start, end);
-                if (this.dictionary.has(part)) {
+                // Use basicCheck to allow parts that are valid via stripping
+                if (this._basicCheck(part)) {
                     const rest = dfs(end);
                     if (rest !== null) {
                         const result = [part, ...rest];
@@ -121,19 +150,13 @@ class SinhalaSpellChecker {
         return null;
     }
 
-    // ----- MODIFIED: check now handles prefix, suffix, and compound words -----
+    // ----- MODIFIED: check uses basicCheck + compound -----
     check(word) {
         if (!this.initialized) return false;
         const normalized = this.normalize(word);
-        // 1. Direct dictionary hit
-        if (this.dictionary.has(normalized)) return true;
-        // 2. Prefix stripping
-        const strippedPrefix = this.stripPrefix(normalized);
-        if (strippedPrefix !== null && this.dictionary.has(strippedPrefix)) return true;
-        // 3. Suffix stripping
-        const strippedSuffix = this.stripSuffix(normalized);
-        if (strippedSuffix !== null && this.dictionary.has(strippedSuffix)) return true;
-        // 4. Compound word segmentation
+        // First, run basic validation (direct, prefix, suffix, combined)
+        if (this._basicCheck(normalized)) return true;
+        // Then try compound segmentation
         const seg = this.getSegmentation(normalized);
         return seg !== null && seg.length >= 2;
     }
@@ -715,7 +738,13 @@ function insertTestText() {
     ශිෂ්‍යත්ව – should be correct if ශිෂ්‍ය is in dictionary.
     ශිෂ්‍යත්වය – should be correct if ශිෂ්‍ය is in dictionary.
     රන්මුවා – should be correct if රන් is in dictionary.
-    රන්මය – should be correct if රන් is in dictionary.`;
+    රන්මය – should be correct if රන් is in dictionary.
+    
+    Combined prefix+suffix stripping:
+    සකර්මක – should be correct if කර්ම is in dictionary (prefix 'ස' + base 'කර්ම' + suffix 'ක').
+    
+    Compound with part that needs suffix stripping:
+    රන්පටින් – should be correct if රන් is in dictionary and පටින් is valid via stripping (පටි + �න්).`;
     inputEl.value = testText;
     checkText();
 }
