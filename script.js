@@ -31,7 +31,7 @@ class SinhalaSpellChecker {
             'වර', 'වාද', 'වාදි', 'කට', 'ය', 'ව', 'තා', 'හු', 'වෝ',
             'යා', 'හි', 'න්', 'ගේ', 'ට', 'ගෙන්', 'වල', 'වලින්', 'වලට',
             'වතා', 'තාව', 'වෙන්', 'යේ', 'ක්', 'යෙන්', 'වා', 'යෙහි', 'කි',
-            'මෙහි', 'හ', 'ත්', 'යෝ', 'තුමා'
+            'මෙහි', 'හ', 'ත්', 'යෝ', 'තුමා', 'වරයා'
         ];
         // Sort suffix list by length descending to handle overlapping suffixes
         this.suffixesToStrip.sort((a, b) => b.length - a.length);
