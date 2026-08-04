@@ -34,7 +34,7 @@ class SinhalaSpellChecker {
             'යන්', 'යකු', 'යෙකු', 'යෙක්', 'යක්','යෙකි', 
             'ගේ', 'ගෙන්', 'ගෙන',  'ගුලු',
             'ධර', 'ධාරී', 'පති', 'ශීලි', 'සුලු', 'හ', 'හු', 'හි',
-            'න්', 'නට', 'න්ට', 'ට'
+            'න', 'න්', 'නට', 'න්ට', 'ට'
         ];
         // Sort suffix list by length descending to handle overlapping suffixes
         this.suffixesToStrip.sort((a, b) => b.length - a.length);
